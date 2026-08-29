@@ -4,21 +4,36 @@ import axios from 'axios';
 
 import { DOMParser } from 'xmldom';
 import { WithImplicitCoercion } from 'buffer';
-async function getURL(steamID) {
-  return new Promise((resolve) => {
-    axios
-      .get(`https://steamcommunity.com/profiles/${steamID}/?xml=1`)
-      .then(function (response) {
-        const parser = new DOMParser();
-        resolve(
-          parser
-            .parseFromString(response.data, 'text/xml')
-            .getElementsByTagName('profile')[0]
-            .getElementsByTagName('avatarMedium')[0]?.childNodes[0]?.nodeValue
-        );
-      });
-  }).catch((error) => console.log(error.message));
+
+type SteamProfileDetails = {
+  displayName?: string;
+  imageURL?: string;
+};
+
+async function getSteamProfileDetails(steamID: string): Promise<SteamProfileDetails> {
+  try {
+    const response = await axios.get(`https://steamcommunity.com/profiles/${steamID}/?xml=1`, {
+      timeout: 8000,
+    });
+    const profile = new DOMParser()
+      .parseFromString(response.data, 'text/xml')
+      .getElementsByTagName('profile')[0];
+
+    if (!profile) {
+      return {};
+    }
+
+    return {
+      displayName: profile.getElementsByTagName('steamID')[0]?.childNodes[0]?.nodeValue || undefined,
+      imageURL: profile.getElementsByTagName('avatarMedium')[0]?.childNodes[0]?.nodeValue || undefined,
+    };
+  } catch (error) {
+    console.warn(`Unable to refresh Steam profile ${steamID}`, error.message);
+    return {};
+  }
 }
+
+let savedProfileRefreshPromise: Promise<Record<string, any>> | undefined;
 // Define store
 const store = new Store({
   name: 'casemoveEnc',
@@ -64,17 +79,6 @@ export async function storeUserAccount(
   steamID,
   secretKey: string | null
 ) {
-  // Get the profile picture
-  let imageURL = undefined as any;
-  try {
-    imageURL = await getURL(steamID);
-  } catch (error) {
-    console.log(error);
-  }
-
-
-
-
   // Get account details
   let accountDetails = store.get('account');
   if (accountDetails == undefined) {
@@ -85,8 +89,12 @@ export async function storeUserAccount(
     accountDetails[username] = {};
   }
 
+  // Do not clear an already cached avatar if Steam is temporarily unavailable.
+  const profileDetails = await getSteamProfileDetails(String(steamID));
+  const imageURL = profileDetails.imageURL || accountDetails[username]['imageURL'];
+
   // Add to account details
-  accountDetails[username]['displayName'] = displayName;
+  accountDetails[username]['displayName'] = profileDetails.displayName || displayName;
   accountDetails[username]['imageURL'] = imageURL;
   // Keep the SteamID alongside the saved refresh token. It lets the transfer
   // screen verify that a saved trade link really belongs to this profile.
@@ -104,6 +112,49 @@ export async function storeUserAccount(
   console.log('Saving regular')
   store.set({
     account: accountDetails,
+  });
+}
+
+// Older saved sessions may predate profile metadata. Refresh it when the
+// profile picker opens so every saved Steam account gets its own avatar.
+export function refreshSavedProfileDetails(): Promise<Record<string, any>> {
+  if (savedProfileRefreshPromise) {
+    return savedProfileRefreshPromise;
+  }
+
+  savedProfileRefreshPromise = (async () => {
+    const accountDetails = (store.get('account') || {}) as Record<string, any>;
+    let hasChanges = false;
+
+    const profiles = await Promise.all(
+      Object.values(accountDetails).map(async (account) => ({
+        account,
+        profileDetails: account?.steamID
+          ? await getSteamProfileDetails(String(account.steamID))
+          : {},
+      })),
+    );
+
+    for (const { account, profileDetails } of profiles) {
+      if (profileDetails.imageURL && profileDetails.imageURL !== account.imageURL) {
+        account.imageURL = profileDetails.imageURL;
+        hasChanges = true;
+      }
+      if (profileDetails.displayName && profileDetails.displayName !== account.displayName) {
+        account.displayName = profileDetails.displayName;
+        hasChanges = true;
+      }
+    }
+
+    if (hasChanges) {
+      store.set('account', accountDetails);
+    }
+
+    return accountDetails;
+  })();
+
+  return savedProfileRefreshPromise.finally(() => {
+    savedProfileRefreshPromise = undefined;
   });
 }
 

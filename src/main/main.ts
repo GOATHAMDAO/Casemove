@@ -26,6 +26,7 @@ import {
   setValue,
   setAccountTradeURL,
   setAccountInventoryCapacity,
+  refreshSavedProfileDetails,
   storeRefreshToken,
   storeUserAccount,
 } from './helpers/classes/steam/settings';
@@ -1275,6 +1276,10 @@ ipcMain.on('electron-store-getAccountDetails', async (event) => {
     'electron-store-getAccountDetails-reply',
     accountDetails,
   );
+});
+
+ipcMain.handle('refresh-saved-profile-details', async () => {
+  return refreshSavedProfileDetails();
 });
 
 ipcMain.on('electron-store-deleteAccountDetails', async (_event, username) => {

@@ -41,6 +41,10 @@ contextBridge.exposeInMainWorld('electron', {
       });
     },
 
+    refreshSavedProfileDetails() {
+      return ipcRenderer.invoke('refresh-saved-profile-details');
+    },
+
     setSavedAccountTradeURL(username, tradeURL) {
       return ipcRenderer.invoke('saved-account-trade-url', username, tradeURL);
     },

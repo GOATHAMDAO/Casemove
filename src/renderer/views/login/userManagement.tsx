@@ -1,11 +1,10 @@
 import { CheckIcon, TrashIcon, UserIcon } from '@heroicons/react/solid';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { classNames } from '../../../renderer/components/content/shared/filters/inventoryFunctions';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { createCSGOImage } from '../../functionsClasses/createCSGOImage';
 
 export default function UserGrid({ clickOnProfile, deleteUser,  runDeleteUser }) {
-  const [hasRun, setHasRun] = useState(false);
   const [getUsers, setUsers] = useState([] as any);
 
   // The brain
@@ -59,11 +58,28 @@ export default function UserGrid({ clickOnProfile, deleteUser,  runDeleteUser })
     setUsers(finalList)
 
   }
-  // Run brain only once
-  if (hasRun == false) {
-    updateFunction();
-    setHasRun(true);
-  }
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadProfiles() {
+      await updateFunction();
+
+      try {
+        // This fills metadata that was absent in sessions saved by older builds.
+        await window.electron.ipcRenderer.refreshSavedProfileDetails();
+        if (isMounted) {
+          await updateFunction();
+        }
+      } catch (error) {
+        console.warn('Unable to refresh saved Steam profiles', error);
+      }
+    }
+
+    void loadProfiles();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Remove account
   async function removeUsername(username) {
