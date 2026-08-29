@@ -52,6 +52,7 @@ game.json
 *.lnk
 .debug/
 .codex-launch*.log
+PUBLISH-TO-GITHUB-RU.md
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
