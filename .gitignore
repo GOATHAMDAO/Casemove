@@ -1,0 +1,84 @@
+# Logs
+logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+
+# Coverage directory used by tools like istanbul
+coverage
+.eslintcache
+
+# Dependency directory
+# https://www.npmjs.org/doc/misc/npm-faq.html#should-i-check-my-node_modules-folder-into-git
+node_modules
+
+# OSX
+.DS_Store
+
+release/app/dist
+release/build
+.erb/dll
+.env
+
+.idea
+npm-debug.log.*
+*.css.d.ts
+*.sass.d.ts
+*.scss.d.ts
+.DS_Store
+.DS_Store
+src/main/helpers/classes/dev/*
+src/renderer/views/purchase/*
+src/renderer/store/reducer/modalPurchase.tsx
+src/renderer/store/reducer/purchase.tsx
+src/renderer/components/content/shared/modals & notifcations/modalPurchase.tsx
+src/renderer/store/actions/modalPurchase Actions.tsx
+src/renderer/store/actions/purchaseActions.tsx
+*.pfx
+*.cert
+
+inventory.txt
+game.json
+
+# dotenv environment variables file
+.env
+.env.test
+*.env
+
+# Local launchers, diagnostics and per-user files. Never publish these.
+*.lnk
+.debug/
+.codex-launch*.log
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+
+# next.js build output
+.next
+
+# nuxt.js build output
+.nuxt
+
+# vuepress build output
+.vuepress/dist
+
+# Serverless directories
+.serverless/
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# Webpack
+.webpack/
+
+# Vite
+.vite/
+
+# Electron-Forge
+out/

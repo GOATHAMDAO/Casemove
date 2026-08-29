@@ -1,0 +1,51 @@
+import { Disclosure } from '@headlessui/react'
+import { useState } from 'react'
+import LoginForm from './loginForm'
+import UserGrid from './userManagement'
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+Disclosure
+function LoginPageContent() {
+  const [getLock, setLock] = useState([''])
+  const [deleteUser, setdeleteUser] = useState('')
+
+  return (
+    <>
+      {/*
+        This example requires updating your template:
+
+        ```
+        <html class="h-full bg-white">
+        <body class="h-full">
+        ```
+      */}
+      <main className="min-h-full flex flex-col lg:overflow-hidden lg:flex-row-reverse dark:bg-dark-level-two">
+
+
+        {/* Account switcher */}
+        <section aria-labelledby="summary-heading" className="mx-auto flex w-full max-w-lg flex-col lg:mx-0 lg:max-w-xs">
+
+
+          <UserGrid clickOnProfile={(username) => setLock(username)} runDeleteUser={() => setdeleteUser('')} deleteUser={deleteUser} />
+        </section>
+
+        {/* Login */}
+        <section
+          aria-labelledby="payment-heading"
+          className="flex-auto overflow-y-auto px-4 pt-12 pb-16 sm:px-6 sm:pt-16 lg:px-8 lg:pt-0 bg-white lg:pb-24 dark:bg-dark-level-one"
+        >
+          <div className="max-w-lg mx-auto">
+            <LoginForm isLock={getLock} replaceLock={() => setLock([''])} runDeleteUser={(username) => setdeleteUser(username)}/>
+          </div>
+        </section>
+      </main>
+    </>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Routes>
+        <Route path="*" element={<LoginPageContent />} />
+    </Routes>
+  );
+}

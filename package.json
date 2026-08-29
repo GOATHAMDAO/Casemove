@@ -1,0 +1,226 @@
+{
+  "name": "casemove",
+  "productName": "casemove",
+  "version": "2.3.11",
+  "description": "Counter-Strike 2 Storage unit manager that helps you move stuff. ",
+  "main": ".webpack/main",
+  "author": {
+    "name": "Nombers",
+    "email": "casemovenombers@gmail.com",
+    "url": "https://github.com/nombersDev/casemove"
+  },
+  "contributors": [
+    {
+      "name": "AaronTarga",
+      "url": "https://github.com/AaronTarga/casemove"
+    }
+  ],
+  "scripts": {
+    "lint": "cross-env NODE_ENV=development eslint . --cache --ext .js,.jsx,.ts,.ts-node",
+    "package": "electron-forge package",
+    "start": "electron-forge start",
+    "test": "jest",
+    "make": "electron-forge make --stats-error-details",
+    "make:win": "electron-forge make --platform=win32 --arch=x64 --stats-error-details",
+    "package:win": "electron-forge package --platform=win32 --arch=x64"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "cross-env NODE_ENV=development eslint --cache"
+    ],
+    "*.json,.{eslintrc,prettierrc}": [
+      "prettier --ignore-path .eslintignore --parser json --write"
+    ],
+    "*.{css,scss}": [
+      "prettier --ignore-path .eslintignore --single-quote --write"
+    ],
+    "*.{html,md,yml}": [
+      "prettier --ignore-path .eslintignore --single-quote --write"
+    ]
+  },
+  "jest": {
+    "testURL": "http://localhost/",
+    "testEnvironment": "jsdom",
+    "transform": {
+      "\\.(ts|tsx|js|jsx)$": "ts-jest"
+    },
+    "moduleNameMapper": {
+      "\\.(jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)$": "<rootDir>/.erb/mocks/fileMock.js",
+      "\\.(css|less|sass|scss)$": "identity-obj-proxy"
+    },
+    "moduleFileExtensions": [
+      "js",
+      "jsx",
+      "ts",
+      "tsx",
+      "json"
+    ],
+    "moduleDirectories": [
+      "node_modules",
+      "release/app/node_modules"
+    ],
+    "testPathIgnorePatterns": [
+      "release/app/dist"
+    ],
+    "setupFiles": [
+      "./.erb/scripts/check-build-exists.ts"
+    ]
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.28.0",
+    "@babel/core": "^7.28.0",
+    "@babel/preset-env": "^7.28.0",
+    "@babel/preset-react": "^7.27.1",
+    "@babel/preset-typescript": "^7.27.1",
+    "@electron-forge/cli": "^7.8.1",
+    "@electron-forge/maker-deb": "^7.8.1",
+    "@electron-forge/maker-rpm": "^7.8.1",
+    "@electron-forge/maker-squirrel": "^7.8.3",
+    "@electron-forge/maker-zip": "^7.8.1",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.8.1",
+    "@electron-forge/plugin-fuses": "^7.8.1",
+    "@electron-forge/plugin-webpack": "^7.8.1",
+    "@electron/fuses": "^1.8.0",
+    "@heroicons/react": "^1.0.6",
+    "@pmmmwh/react-refresh-webpack-plugin": "0.6.1",
+    "@svgr/core": "^8.1.0",
+    "@teamsupercell/typings-for-css-modules-loader": "^2.5.2",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@types/history": "5.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/lodash": "^4.17.20",
+    "@types/node": "^24.0.10",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@types/react-router": "^5.1.20",
+    "@types/react-router-dom": "^5.3.3",
+    "@types/react-test-renderer": "^19.1.0",
+    "@types/terser-webpack-plugin": "^5.2.0",
+    "@types/webpack-bundle-analyzer": "^4.7.0",
+    "@types/webpack-env": "^1.18.8",
+    "@typescript-eslint/eslint-plugin": "^8.35.1",
+    "@vercel/webpack-asset-relocator-loader": "^1.7.3",
+    "autoprefixer": "^10.4.21",
+    "babel-loader": "^10.0.0",
+    "chalk": "^5.4.1",
+    "concurrently": "^9.2.0",
+    "core-js": "^3.43.0",
+    "cross-env": "^7.0.3",
+    "css-loader": "^7.1.2",
+    "css-minimizer-webpack-plugin": "^7.0.2",
+    "detect-port": "^2.1.0",
+    "dotenv": "^17.0.1",
+    "electron": "^37.2.0",
+    "electron-devtools-installer": "^4.0.0",
+    "electron-notarize": "^1.2.2",
+    "eslint": "^9.30.1",
+    "file-loader": "^6.2.0",
+    "html-webpack-plugin": "^5.6.3",
+    "husky": "9.1.7",
+    "identity-obj-proxy": "^3.0.0",
+    "jest": "^30.0.4",
+    "lint-staged": "^16.1.2",
+    "mini-css-extract-plugin": "^2.9.2",
+    "opencollective-postinstall": "^2.0.3",
+    "postcss": "^8.5.6",
+    "postcss-loader": "^8.1.1",
+    "prettier": "^3.6.2",
+    "react-refresh": "^0.17.0",
+    "react-refresh-typescript": "^2.0.10",
+    "react-test-renderer": "^19.1.0",
+    "rimraf": "^6.0.1",
+    "sass": "^1.89.2",
+    "sass-loader": "^16.0.5",
+    "style-loader": "^4.0.0",
+    "tailwindcss": "^4.1.12",
+    "terser-webpack-plugin": "^5.3.14",
+    "ts-jest": "^29.4.0",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths-webpack-plugin": "^4.2.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "url-loader": "^4.1.1",
+    "webpack-bundle-analyzer": "^4.10.2",
+    "webpack-dev-server": "^5.2.2",
+    "webpack-merge": "^6.0.1"
+  },
+  "dependencies": {
+    "@electron/rebuild": "^3.7.2",
+    "@electron/remote": "^2.1.2",
+    "@headlessui/react": "^2.2.4",
+    "@hello-pangea/dnd": "^18.0.1",
+    "@node-steam/vdf": "^2.2.0",
+    "@redux-beacon/google-analytics": "^1.2.3",
+    "@reduxjs/toolkit": "^2.8.2",
+    "@tailwindcss/postcss": "^4.1.12",
+    "@vercel/webpack-asset-relocator-loader": "^1.7.3",
+    "axios": "^1.10.0",
+    "bytebuffer": "^5.0.1",
+    "chart.js": "^4.5.0",
+    "chartjs-plugin-datalabels": "^2.2.0",
+    "copy-webpack-plugin": "^13.0.1",
+    "currency-converter-lt": "^1.3.1",
+    "electron-debug": "^4.1.0",
+    "electron-dl": "^4.0.0",
+    "electron-log": "^5.4.1",
+    "electron-redux": "^2.0.0",
+    "electron-squirrel-startup": "^1.0.1",
+    "electron-store": "^8.2.0",
+    "electron-updater": "^6.6.2",
+    "fernet": "^0.3.3",
+    "find-process": "^2.0.0",
+    "fork-ts-checker-webpack-plugin": "^9.1.0",
+    "globaloffensive": "^3.2.0",
+    "history": "5.x.x",
+    "lodash": "^4.17.21",
+    "lzma": "^2.3.2",
+    "lzma-native": "^8.0.6",
+    "postcss-preset-env": "^10.2.4",
+    "react": "^19.1.0",
+    "react-chartjs-2": "^5.3.0",
+    "react-dom": "^19.1.0",
+    "react-qr-code": "^2.0.17",
+    "react-redux": "^9.2.0",
+    "react-router-dom": "^7.6.3",
+    "redux-persist": "^6.0.0",
+    "redux-thunk": "^3.1.0",
+    "regenerator-runtime": "^0.14.1",
+    "steam-session": "^1.9.3",
+    "steam-totp": "^2.1.2",
+    "steam-tradeoffer-manager": "^2.13.0",
+    "steam-user": "^5.2.1",
+    "ts-loader": "^9.5.2",
+    "uglify-js": "^3.19.3",
+    "update-electron-app": "^3.1.1",
+    "webpack": "^5.100.1",
+    "webpack-cli": "^6.0.1",
+    "xmldom": "^0.6.0"
+  },
+  "overrides": {
+    "inherits": "latest"
+  },
+  "collective": {
+    "url": "https://opencollective.com/electron-react-boilerplate-594"
+  },
+  "browserslist": [],
+  "prettier": {
+    "overrides": [
+      {
+        "files": [
+          ".prettierrc",
+          ".eslintrc"
+        ],
+        "options": {
+          "parser": "json"
+        }
+      }
+    ],
+    "singleQuote": true
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  }
+}

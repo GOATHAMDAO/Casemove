@@ -1,0 +1,96 @@
+/* Limit Tailwind's automatic scan to renderer source. Without source(none),
+   Tailwind v4 walks the whole repository (including node_modules) during a
+   production Electron build and exhausts Windows memory. */
+@import 'tailwindcss' source(none);
+@source './';
+
+/* Tailwind v4 uses the system preference by default. This app stores the
+   user's choice and toggles the `dark` class on the root element instead. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Softer graphite palette for legacy screens that were originally styled
+   only for the light theme. */
+.dark,
+.dark body,
+.dark #root {
+  background: #20242a;
+  color: #d8dde5;
+}
+
+.dark .bg-white,
+.dark .bg-gray-50,
+.dark .bg-gray-100 {
+  background-color: #252a31 !important;
+}
+
+.dark .bg-gray-200 {
+  background-color: #2d333b !important;
+}
+
+.dark .bg-dark-level-one {
+  background-color: #20242a !important;
+}
+
+.dark .bg-dark-level-two {
+  background-color: #252a31 !important;
+}
+
+.dark .bg-dark-level-three {
+  background-color: #2b3139 !important;
+}
+
+.dark .bg-dark-level-four {
+  background-color: #353c46 !important;
+}
+
+/* The application shell uses a fixed sidebar, so give it the same calm
+   graphite surface as the main area instead of leaving the light backdrop. */
+.dark .app-sidebar {
+  background-color: #20242a !important;
+}
+
+
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark .border-gray-300 {
+  border-color: #414852 !important;
+}
+
+.dark .text-gray-900,
+.dark .text-gray-800,
+.dark .text-gray-700,
+.dark .text-gray-600 {
+  color: #d8dde5 !important;
+}
+
+.dark .text-gray-500,
+.dark .text-gray-400 {
+  color: #a8b0bc !important;
+}
+
+/* Keep the quantity selector readable. Legacy hover utilities otherwise turn
+   a whole transfer row white in dark mode, hiding its + and − controls. */
+.dark .transfer-item-row:hover {
+  background-color: #2b3139 !important;
+}
+
+/* Use the same quiet hover surface across the dark UI. Several legacy views
+   still use Tailwind's light hover utilities, which otherwise flash white. */
+.dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-gray-100:hover,
+.dark .hover\:bg-gray-200:hover,
+.dark .dark\:hover\:bg-dark-level-three:hover {
+  background-color: #2b3139 !important;
+}
+
+.dark .transfer-quantity-button,
+.dark .transfer-quantity-input {
+  background-color: #252a31 !important;
+  border-color: #58616d !important;
+  color: #e3e7ed !important;
+}
+
+.dark .transfer-quantity-button:hover {
+  background-color: #3a424d !important;
+  color: #ffffff !important;
+}
