@@ -264,7 +264,10 @@ const installExtensions = async () => {
 };
 
 const createWindow = async () => {
-  if (isDevelopment) {
+  // Downloading browser extensions can block the first window for a long
+  // time, especially when GitHub is slow or unavailable. Opt in only when
+  // actively debugging React or Redux.
+  if (isDevelopment && process.env.INSTALL_DEVTOOLS === '1') {
     await installExtensions();
   }
 
