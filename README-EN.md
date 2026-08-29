@@ -8,7 +8,7 @@ Casemove helps you view your CS2 inventory and Storage Units, combine identical 
 2. Extract the archive to a normal folder, for example `C:\Casemove`.
 3. Install [Node.js LTS](https://nodejs.org/), version 22 or newer.
 4. Double-click `Start-Casemove-Dev.bat` in the project folder.
-5. Dependencies are required in the project folder for the first launch. If the launcher says they are missing, open PowerShell in that folder, run `npm install`, and start the `.bat` file again.
+5. Dependencies are required in the project folder for the first launch. If the launcher says they are missing, open PowerShell in that folder, run `npm ci`, and start the `.bat` file again.
 
 You need Windows 10/11 x64, [Node.js LTS](https://nodejs.org/), an internet connection, and Steam Guard on your phone for QR sign-in. Git and VS Code are optional; a CS2 installation is not required.
 
@@ -116,4 +116,4 @@ Steam requires confirmation for certain trade-related actions. Open Steam on you
 
 ### Can I give Casemove to a friend?
 
-Yes. Send a repository link or ZIP without `.env` files, certificates, logs, or `%APPDATA%\casemove`. Your friend needs Node.js, then runs `npm install` followed by `Start-Casemove-Dev.bat`.
+Yes. Send a repository link or ZIP without `.env` files, certificates, logs, or `%APPDATA%\casemove`. Your friend needs Node.js, then runs `npm ci` followed by `Start-Casemove-Dev.bat`.

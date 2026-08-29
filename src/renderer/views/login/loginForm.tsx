@@ -109,6 +109,17 @@ export default function LoginForm({ isLock, replaceLock, runDeleteUser }) {
     setDoShow(true);
   }
 
+  function showQRLoginError(responseStatus: LoginCommand) {
+    const errorMessage = (responseStatus.returnPackage as any)?.errorMessage;
+    if (!errorMessage) return false;
+
+    setWasSuccess(false);
+    setTitleToDisplay('QR login failed');
+    setTextToDisplay(`Steam could not complete the QR login: ${errorMessage}`);
+    setDoShow(true);
+    return true;
+  }
+
   class HandleLogin {
     command: keyof LoginOptions;
     relevantFunction: Function;
@@ -337,7 +348,11 @@ export default function LoginForm({ isLock, replaceLock, runDeleteUser }) {
         // Notification and react
         console.log('response status', responseStatus);
         const HandleClass = new HandleLogin(responseStatus.responseStatus);
-        HandleClass.relevantFunction();
+        const hasDetailedQRError = responseStatus.responseStatus !== 'loggedIn' &&
+          showQRLoginError(responseStatus);
+        if (!hasDetailedQRError) {
+          HandleClass.relevantFunction();
+        }
         if (responseStatus.responseStatus == 'loggedIn') {
           handleSuccess(
             responseStatus.returnPackage as LoginCommandReturnPackage,

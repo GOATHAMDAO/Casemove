@@ -6,9 +6,20 @@ import { emitterAccount } from '../../../emitters';
 export async function flowLoginRegularQR(doStoreLogin: boolean): Promise<{
   responseStatus: keyof LoginOptions;
   session?: LoginSession;
+  errorMessage?: string;
 }> {
   return new Promise(async (resolve) => {
     let session = new LoginSession(EAuthTokenPlatformType.SteamClient);
+    let isFinished = false;
+    const finish = (result: {
+      responseStatus: keyof LoginOptions;
+      session?: LoginSession;
+      errorMessage?: string;
+    }) => {
+      if (isFinished) return;
+      isFinished = true;
+      resolve(result);
+    };
     console.log('Start with QR');
 
     session.on('authenticated', async () => {
@@ -18,22 +29,24 @@ export async function flowLoginRegularQR(doStoreLogin: boolean): Promise<{
         storeRefreshToken(session.accountName, session.refreshToken);
       }
 
-      resolve({
+      finish({
         responseStatus: 'loggedIn',
         session,
       });
     });
 
     session.once('timeout', () => {
-      resolve({
+      finish({
         responseStatus: 'defaultError',
+        errorMessage: 'Steam QR login timed out. Generate a new QR code and scan it again.',
       });
     });
 
-    session.once('error', (_err) => {
-      console.log('Error');
-      resolve({
+    session.once('error', (error) => {
+      console.error('Steam QR login error:', error);
+      finish({
         responseStatus: 'defaultError',
+        errorMessage: error instanceof Error ? error.message : String(error),
       });
     });
     try {
@@ -45,9 +58,11 @@ export async function flowLoginRegularQR(doStoreLogin: boolean): Promise<{
       });
       const { qrChallengeUrl } = await session.startWithQR();
       emitterAccount.emit('qrLogin:show', qrChallengeUrl);
-    } catch {
-      resolve({
+    } catch (error) {
+      console.error('Unable to start Steam QR login:', error);
+      finish({
         responseStatus: 'defaultError',
+        errorMessage: error instanceof Error ? error.message : String(error),
       });
     }
   });

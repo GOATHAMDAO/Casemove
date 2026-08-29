@@ -805,6 +805,14 @@ ipcMain.on('startQRLogin', async (event, shouldRemember) => {
   emitterAccount.emit('qrLogin:cancel');
   flowLoginRegularQR(shouldRemember).then((returnValue) => {
     if (!returnValue.session) {
+      // QR errors previously left the renderer waiting forever because it
+      // never received a login-reply. Always finish the IPC request.
+      event.reply('login-reply', {
+        responseStatus: returnValue.responseStatus,
+        returnPackage: {
+          errorMessage: returnValue.errorMessage,
+        },
+      });
       return;
     }
 
