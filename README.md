@@ -3,93 +3,6 @@
 *Casemove is an open-source desktop application that helps you easily move items out of and into Storage Units in Counter-Strike 2. The app utilizes the [Steam-user](https://github.com/DoctorMcKay/node-steam-user) & [Global Offensive](https://github.com/DoctorMcKay/node-globaloffensive) libraries to establish a connection with Steam and interact with the CS2 game coordinator.* 
 
 > User guides and FAQ: [English](README-EN.md) · [Русский](README-RU.md).  
-> Project-owner guide for publishing this source code on GitHub: [PUBLISH-TO-GITHUB-RU.md](PUBLISH-TO-GITHUB-RU.md).
-
-----
-
-
-## dev comments
-
-installation is a bit buggy for me but npm install fails but somehov npm run start and npm run prepare work
-
-install signtool
-https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/
-
-create .env file with 
-```
-SIGNING_TIMESTAMP=http://timestamp.acs.microsoft.com
-SIGNING_PATH=path\to\casemove\
-```
-and then create self signed cert and move it to casemove path
-```
-$cert = New-SelfSignedCertificate -DNSName "www.domain.com" -CertStoreLocation Cert:\CurrentUser\My -Type CodeSigningCert -Subject “Example Code Signing Certificate”
-
-$CertPassword = ConvertTo-SecureString -String "my_password" -Force -AsPlainText
-
-$certfile = Get-ChildItem -Path Cert:\CurrentUser\My\$($cert.Thumbprint)
-
-Export-PfxCertificate -Cert $certfile -FilePath "C:\Cert$certificate.pfx" -Password $CertPassword
-
-#or 
-
-Export-Certificate -Cert $certfile -FilePath "C:\Cert$certificate.cert" -Type CERT
-```
-
-## Download Latest Version (Casemove 2.3.3)
-
-This is the latest stable version and can be downloaded from the [releases](https://github.com/nombersDev/casemove/releases) page, or directly from:
-
-
-- [Windows - (Casemove-2.3.3)](https://github.com/nombersDev/casemove/releases/download/v2.3.3/Casemove-Setup-2.3.3.exe)
-- [Mac - (Casemove-2.3.3)](https://github.com/nombersDev/casemove/releases/download/v2.3.3/Casemove-2.3.3.dmg)
-- [Mac ARM 64 (M1) - (Casemove-2.3.3)](https://github.com/nombersDev/casemove/releases/download/v2.3.3/Casemove-2.3.3-arm64.dmg)
-- [Linux Deb - (Casemove-2.3.3)](https://github.com/nombersDev/casemove/releases/download/v2.3.3/casemove_2.3.3_amd64.deb)
-
-## Support
-
-Please join the Casemove discord for support: https://discord.gg/4dSBdt4uJ3
-
-https://user-images.githubusercontent.com/98760010/181345579-e4fd11be-1af9-4b8b-a211-5747fdd414aa.mp4
-
-
-
-
-Features include:
-  * An overview page of your storage contents
-  * Log in without entering your password / Steam Guard
-  * View your inventory
-  * View your storage units contents
-  * View the Value of your inventory and storage units
-  * Move items out of and into your storage units in bulk instead of clicking on the individual items
-  * Rename your storage units
-  * Sort, search and filter your inventory
-  * Sort, search and filter your storage units contents
-  * Download a file over your Storage units and inventory contents
-  * Switch between multiple accounts easily
-  * Use your shared secret key instead of an auth code to log in 
-  * See your storage unit's and inventory value from Buff, Skinport & SCM in almost all currencies
-
-Trade up features:
-  * Complete trade up contracts from within the app! 
-  * See the possible outcomes from your trade up contract
-  * See an estimated EV of your trade up contract recipe
-
-
- 
- 
-----
-
-### How To Use
-
-Use this link to install [Casemove](https://github.com/nombersDev/casemove/releases) 
-
-To use:
-  * Download the latest stable version of Casemove
-  * Install the application
-  * Run the app
-  * Log in
-
-----
 
 ## COMMON QUESTIONS
 #### Can I be VAC banned?
@@ -106,10 +19,6 @@ No, Casemove doesn’t store any information on your computer, except for when y
 #### Why can't I just log in using the Steam Web authentication?
 
 In order to move items in and out of Storage Units, the app needs to have an active connection with the CS2 game coordinator. This is not possible when using the web authentication method. However, take a look at the question below. 
-
-#### How does the browser login work?
-
-The browser login feature works by you logging in to the regular Steam website which makes Steam generate a one time string that you, amongst other things, can use to log in to casemove. This is the safest login method, as the generated string is single use which means that even if someone got a hold of it, it would be useless to them. To get the string open this [URL](https://steamcommunity.com/chat/clientjstoken).
 
 #### Where can I read more about the safety?
 
