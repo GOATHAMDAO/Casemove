@@ -129,6 +129,8 @@ let tradeUpClass = new tradeUps();
 const ClassLoginResponse = new LoginGenerator();
 let activeTradeManager: any = null;
 let tradeManagerError = 'Steam trade session is not ready yet.';
+let activeSteamSessionToken = 0;
+let disposeActiveSteamSession: (() => void) | null = null;
 let savedCapacityQueue: Promise<void> = Promise.resolve();
 const CS2_INVENTORY_LIMIT = 1000;
 const MAX_CS2_TRADE_OFFER_ITEMS = 1000;
@@ -591,6 +593,14 @@ emitterAccount.on(
     shouldRemember: boolean,
     secretKey: string | null,
   ) => {
+    // A saved-account login creates a fresh SteamUser instance. Stop the
+    // previous instance before it can publish a late inventory event into the
+    // newly selected account's renderer state.
+    const sessionToken = activeSteamSessionToken + 1;
+    activeSteamSessionToken = sessionToken;
+    disposeActiveSteamSession?.();
+    disposeActiveSteamSession = null;
+
     log.info(`[login] starting Steam session for ${username}`);
     confirmedStoredAssetIDs.clear();
     knownStorageUnits.clear();
@@ -603,6 +613,7 @@ emitterAccount.on(
 
     // Success
     user.once('accountInfo', (displayName) => {
+      if (sessionToken !== activeSteamSessionToken) return;
       console.log('Logged into Steam as main ' + displayName);
       getValue('pricing.currency').then((returnValue) => {
         if (returnValue == undefined) {
@@ -616,6 +627,7 @@ emitterAccount.on(
 
       async function gameCoordinate(resolve: any = null) {
         csgo.once('connectedToGC', () => {
+          if (sessionToken !== activeSteamSessionToken) return;
           if (resolve) {
             resolve('GC');
           }
@@ -641,7 +653,7 @@ emitterAccount.on(
                       walletToSend: walletToSend,
                     };
 
-                    startEvents(csgo, user);
+                    startEvents(csgo, user, sessionToken);
                     if (shouldRemember) {
                       storeUserAccount(
                         username,
@@ -900,7 +912,15 @@ function sendUpdaterStatusToWindow(text) {
 
 // Adds events listeners the user
 // Forward Steam notifications to renderer
-async function startEvents(csgo, user) {
+async function startEvents(csgo, user, sessionToken) {
+  const isActiveSession = () => sessionToken === activeSteamSessionToken;
+  const sendUserEvent = (eventData) => {
+    if (isActiveSession()) {
+      mainWindow?.webContents.send('userEvents', eventData);
+    }
+  };
+
+  if (!isActiveSession()) return;
   // Trade offers use the authenticated web session of the currently active
   // account. No public inventory endpoint is involved, so trade-held items
   // remain part of the inventory data shown in the renderer.
@@ -988,7 +1008,7 @@ async function startEvents(csgo, user) {
         console.log('Item ' + item.id + ' was removed');
         fetchItemClass.convertInventory(getDirectInventoryForRenderer(csgo.inventory)).then((returnValue) => {
           tradeUpClass.getTradeUp(returnValue).then((newReturnValue: any) => {
-            mainWindow?.webContents.send('userEvents', [
+            sendUserEvent([
               1,
               'itemRemoved',
               [item, newReturnValue],
@@ -1001,7 +1021,7 @@ async function startEvents(csgo, user) {
     csgo.on('itemChanged', (item) => {
       fetchItemClass.convertInventory(getDirectInventoryForRenderer(csgo.inventory)).then((returnValue) => {
         tradeUpClass.getTradeUp(returnValue).then((newReturnValue: any) => {
-          mainWindow?.webContents.send('userEvents', [
+          sendUserEvent([
             1,
             'itemChanged',
             [item, newReturnValue],
@@ -1024,7 +1044,7 @@ async function startEvents(csgo, user) {
             .convertInventory(getDirectInventoryForRenderer(csgo.inventory))
             .then((returnValue) => {
               tradeUpClass.getTradeUp(returnValue).then((newReturnValue) => {
-                mainWindow?.webContents.send('userEvents', [
+                sendUserEvent([
                   1,
                   'itemAcquired',
                   [{}, newReturnValue],
@@ -1035,7 +1055,7 @@ async function startEvents(csgo, user) {
 
         fetchItemClass.convertInventory(getDirectInventoryForRenderer(csgo.inventory)).then((returnValue) => {
           tradeUpClass.getTradeUp(returnValue).then((newReturnValue: any) => {
-            mainWindow?.webContents.send('userEvents', [
+            sendUserEvent([
               1,
               'itemAcquired',
               [item, newReturnValue],
@@ -1049,7 +1069,7 @@ async function startEvents(csgo, user) {
 
   csgo.on('disconnectedFromGC', (reason) => {
     console.log('Disconnected from GC - reason: ', reason);
-    mainWindow?.webContents.send('userEvents', [
+    sendUserEvent([
       3,
       'disconnectedFromGC',
       [reason],
@@ -1059,7 +1079,7 @@ async function startEvents(csgo, user) {
   csgo.on('connectedToGC', () => {
     console.log('Connected to GC!');
     if (csgo.haveGCSession) {
-      mainWindow?.webContents.send('userEvents', [3, 'connectedToGC']);
+      sendUserEvent([3, 'connectedToGC']);
     }
   });
 
@@ -1067,21 +1087,21 @@ async function startEvents(csgo, user) {
   // Steam Connection
   user.on('error', (eresult, msg) => {
     console.log('main', eresult, msg);
-    mainWindow?.webContents.send('userEvents', [2, 'fatalError']);
+    sendUserEvent([2, 'fatalError']);
     clearForNewSession();
   });
   user.on('disconnected', (eresult, msg) => {
     console.log(eresult, msg);
-    mainWindow?.webContents.send('userEvents', [2, 'disconnected']);
+    sendUserEvent([2, 'disconnected']);
   });
   user.on('loggedOn', () => {
-    mainWindow?.webContents.send('userEvents', [2, 'reconnected']);
+    sendUserEvent([2, 'reconnected']);
   });
   user.on('wallet', (hasWallet, currency, balance) => {
     let walletToSend = { hasWallet, currency, balance };
     walletToSend.currency = currencyCodes?.[walletToSend?.currency];
     console.log('Wallet update: ', balance);
-    mainWindow?.webContents.send('userEvents', [4, walletToSend]);
+    sendUserEvent([4, walletToSend]);
   });
 
   // Get commands from Renderer
@@ -1091,13 +1111,14 @@ async function startEvents(csgo, user) {
     csgo.removeAllListeners('itemChanged');
     csgo.removeAllListeners('itemAcquired');
   }
+  ipcMain.removeAllListeners('refreshInventory');
   ipcMain.on('refreshInventory', async () => {
     removeInventoryListeners();
     startChangeEvents();
 
     fetchItemClass.convertInventory(getDirectInventoryForRenderer(csgo.inventory)).then((returnValue) => {
       tradeUpClass.getTradeUp(returnValue).then((newReturnValue) => {
-        mainWindow?.webContents.send('userEvents', [
+        sendUserEvent([
           1,
           'itemAcquired',
           [{}, newReturnValue],
@@ -1106,6 +1127,7 @@ async function startEvents(csgo, user) {
     });
   });
   // Retry connection
+  ipcMain.removeAllListeners('retryConnection');
   ipcMain.on('retryConnection', async () => {
     user.gamesPlayed([]);
     user.gamesPlayed([730]);
@@ -1265,9 +1287,20 @@ async function startEvents(csgo, user) {
     ipcMain.removeAllListeners('removeFromStorageUnit');
     ipcMain.removeAllListeners('moveToStorageUnit');
     ipcMain.removeAllListeners('getCasketContents');
+    ipcMain.removeAllListeners('refreshInventory');
+    ipcMain.removeAllListeners('retryConnection');
     ipcMain.removeAllListeners('signOut');
     ipcMain.removeAllListeners('forceLogin');
+
+    if (disposeActiveSteamSession === clearForNewSession) {
+      disposeActiveSteamSession = null;
+    }
+    if (isActiveSession()) {
+      activeSteamSessionToken += 1;
+    }
   }
+
+  disposeActiveSteamSession = clearForNewSession;
 }
 
 // Get currency

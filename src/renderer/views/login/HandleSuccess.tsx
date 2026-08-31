@@ -5,7 +5,7 @@ import { State } from "../../../renderer/interfaces/states";
 import { SignInActionPackage } from "../../../renderer/interfaces/store/authReducerActionsInterfaces"
 import { inventorySetFilter } from "../../../renderer/store/actions/filtersInventoryActions";
 import { setInventoryAction } from "../../../renderer/store/inventory/inventoryActions";
-import { signIn } from "../../../renderer/store/actions/userStatsActions";
+import { signIn, signOut } from "../../../renderer/store/actions/userStatsActions";
 import { getURL } from "../../../renderer/store/helpers/userStatusHelper";
 import { LoginCommandReturnPackage } from "../../../shared/Interfaces.tsx/store"
 import { createCSGOImage } from "../../functionsClasses/createCSGOImage";
@@ -18,6 +18,10 @@ async function getProfilePicture(steamID: string): Promise<string> {
   }
 }
 export async function handleSuccess(returnSuccessPackage: LoginCommandReturnPackage, dispatch: Function, currentState: State) {
+  // Never leave the previous account's persisted inventory visible while the
+  // next Steam session is being hydrated.
+  dispatch(signOut());
+
   // Get Redux values
   const StoreClass = new DispatchStore(dispatch)
   const IPCClass = new DispatchIPC(dispatch)
