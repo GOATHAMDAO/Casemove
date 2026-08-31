@@ -481,14 +481,43 @@ var fetchItemClass = new fetchItems();
 // notification. Keep confirmed stored asset IDs out of every direct-inventory
 // view until Steam itself marks them with casket_id.
 const confirmedStoredAssetIDs = new Set<string>();
+// Steam occasionally sends an incremental inventory update immediately after
+// adding or removing an item from a Storage Unit. Those updates can omit the
+// Storage Unit rows entirely even though the units still exist. Keep the last
+// complete rows so the renderer never replaces every Storage Unit with an
+// empty list while waiting for Steam's next full inventory snapshot.
+const knownStorageUnits = new Map<string, any>();
+
+function isStorageUnit(item: any) {
+  return Number(item?.def_index) === 1201;
+}
 
 function getDirectInventoryForRenderer(inventoryData: any) {
   const rows = Array.isArray(inventoryData)
     ? inventoryData
     : Object.values(inventoryData || {});
-  return rows.filter(
+  const directRows = rows.filter(
     (item: any) => !confirmedStoredAssetIDs.has(String(item?.id)),
   );
+
+  directRows.forEach((item: any) => {
+    if (isStorageUnit(item)) {
+      knownStorageUnits.set(String(item.id), item);
+    }
+  });
+
+  const presentItemIDs = new Set(directRows.map((item: any) => String(item?.id)));
+  const missingStorageUnits = Array.from(knownStorageUnits.entries())
+    .filter(([itemID]) => !presentItemIDs.has(itemID))
+    .map(([, item]) => item);
+
+  if (missingStorageUnits.length > 0) {
+    console.warn(
+      `Steam inventory update omitted ${missingStorageUnits.length} Storage Unit(s); restoring their last confirmed rows.`,
+    );
+  }
+
+  return [...directRows, ...missingStorageUnits];
 }
 
 // Version manager
@@ -564,6 +593,7 @@ emitterAccount.on(
   ) => {
     log.info(`[login] starting Steam session for ${username}`);
     confirmedStoredAssetIDs.clear();
+    knownStorageUnits.clear();
     user.once('loggedOn', () => {
       log.info(`[login] Steam accepted session for ${username}`);
     });

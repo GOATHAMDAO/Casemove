@@ -7,7 +7,7 @@ import {
   classNames,
   sortDataFunction,
 } from '../../shared/filters/inventoryFunctions';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BanIcon, FireIcon } from '@heroicons/react/solid';
 import { searchFilter } from '../../../../../renderer/functionsClasses/filters/search';
 import { State } from '../../../../../renderer/interfaces/states';
@@ -25,15 +25,17 @@ function StorageUnits() {
   const toReducer = useSelector((state: State) => state.moveToReducer);
   const pricesResult = useSelector((state: State) => state.pricingReducer);
   const settingsData = useSelector((state: State) => state.settingsReducer);
-  const inventoryFilters = useSelector(
-    (state: any) => state.inventoryFiltersReducer
+  // This page needs the live direct inventory, not the filtered Inventory
+  // page cache. Items extracted from a Storage Unit are added to the direct
+  // inventory first, while the shared filtered cache can still contain the
+  // older pre-extraction result.
+  const directMoveableItems = useMemo(
+    () => inventory.combinedInventory.filter(
+      (item) => item.item_moveable === true && !item.item_url?.includes('casket'),
+    ),
+    [inventory.combinedInventory],
   );
-  let inventoryTouse = inventoryFilter.inventoryFiltered
-  if (inventoryTouse.length == 0 && inventoryFilters.inventoryFilter?.length == 0 ) {
-    inventoryTouse = inventory.combinedInventory
-  }
-  const [getStorage, setStorage] = useState(inventoryTouse);
-  getStorage;
+  const [getStorage, setStorage] = useState(directMoveableItems);
   function sleep(time) {
     return new Promise((resolve) => setTimeout(resolve, time));
   }
@@ -79,23 +81,34 @@ function StorageUnits() {
   }
 
 
-  async function storageResult() {
-    const storageResult = await sortDataFunction(
+  useEffect(() => {
+    let cancelled = false;
+
+    void sortDataFunction(
       toReducer.sortValue,
-      inventoryTouse,
+      [...directMoveableItems],
       pricesResult.prices,
-      settingsData?.source?.title
-    );
-    setStorage(storageResult);
-  }
-  storageResult();
-  if (toReducer.sortBack == true) {
-    getStorage.reverse();
-  }
-  let inventoryMoveable = searchFilter(getStorage, inventoryFilter, toReducer);
-  inventoryMoveable = inventoryMoveable.filter(function (item) {
-    return item.item_moveable == true;
-  });
+      settingsData?.source?.title,
+    ).then((storageResult) => {
+      if (!cancelled) {
+        setStorage(storageResult);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    directMoveableItems,
+    pricesResult.prices,
+    settingsData?.source?.title,
+    toReducer.sortValue,
+  ]);
+
+  const storageToShow = toReducer.sortBack
+    ? [...getStorage].reverse()
+    : getStorage;
+  const inventoryMoveable = searchFilter(storageToShow, inventoryFilter, toReducer);
 
   return (
     <>
@@ -167,8 +180,7 @@ function StorageUnits() {
                           toReducer.activeStoragesAmount -
                           toReducer.totalItemsToMove ==
                           0 ||
-                          toReducer.totalToMove.length ==
-                            inventoryFilters.inventoryFiltered.length
+                          toReducer.totalToMove.length == inventoryMoveable.length
                           ? 'pointer-events-none text-gray-200 dark:text-gray-600'
                           : 'text-gray-600 dark:text-gray-400'
                       )}
