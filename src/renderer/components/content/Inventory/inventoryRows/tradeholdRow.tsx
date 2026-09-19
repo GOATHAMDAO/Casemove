@@ -3,16 +3,23 @@ export function RowTradehold({itemRow, settingsData}) {
   const now = new Date();
   const unlockDates = itemRow.trade_unlocks ||
     (itemRow.trade_unlock !== undefined ? [itemRow.trade_unlock] : []);
-  const daysToUnlock = unlockDates
+  const remainingHours = unlockDates
     .map((unlockDate) => Math.max(0, Math.ceil(
-      (unlockDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      (unlockDate.getTime() - now.getTime()) / (1000 * 60 * 60)
     )))
     .sort((first, second) => first - second);
-  const lockedLabel = daysToUnlock.length === 0
+  const formatRemainingTime = (hours) => {
+    if (hours < 24) return `${hours} h`;
+
+    const days = Math.floor(hours / 24);
+    const hoursAfterDays = hours % 24;
+    return hoursAfterDays === 0 ? `${days} d` : `${days} d ${hoursAfterDays} h`;
+  };
+  const lockedLabel = remainingHours.length === 0
     ? ''
-    : daysToUnlock[0] === daysToUnlock[daysToUnlock.length - 1]
-      ? `${daysToUnlock[0]} days`
-      : `${daysToUnlock[0]}–${daysToUnlock[daysToUnlock.length - 1]} days`;
+    : remainingHours[0] === remainingHours[remainingHours.length - 1]
+      ? formatRemainingTime(remainingHours[0])
+      : `${formatRemainingTime(remainingHours[0])}–${formatRemainingTime(remainingHours[remainingHours.length - 1])}`;
   const tradeholdLabel = lockedLabel;
 
   return (

@@ -649,55 +649,52 @@ function AppContent() {
               </div>
               {!currentSideMenuOption.includes('/tradeup') ? (
                 <div className="mt-5">
-                  {/* Secondary navigation */}
-                  <h3
-                    className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                    id="desktop-teams-headline"
-                  >
-                    Storage categories
-                  </h3>
-                  <div
-                    className="mt-1 space-y-1"
-                    role="group"
-                    aria-labelledby="desktop-teams-headline"
-                  >
-                    {itemCategories.map((team) => (
-                      <div
-                        className={classNames(
-                          filterDetails.categoryFilter?.includes(
-                            team.bgColorClass
-                          )
-                            ? 'bg-gray-200 dark:bg-dark-level-three'
-                            : '',
-                          'w-full'
-                        )}
-                      >
-                        <button
-                          key={team.name}
-                          onClick={() =>
-                            dispatch(
-                              inventoryAddCategoryFilter(team.bgColorClass)
-                            )
-                          }
-                          className={classNames(
-                            userDetails.isLoggedIn == false
-                              ? 'pointer-events-none'
-                              : '',
-                            'group flex items-center px-3 py-1 dark:text-dark-white text-sm font-medium text-gray-700 rounded-md'
-                          )}
-                        >
-                          <span
-                            className={classNames(
-                              team.bgColorClass,
-                              'w-2.5 h-2.5 mr-4 rounded-full'
-                            )}
-                            aria-hidden="true"
-                          />
-                          <span className="truncate">{team.name}</span>
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                  <Menu as="div" className="relative px-3">
+                    <Menu.Button
+                      className={classNames(
+                        userDetails.isLoggedIn ? '' : 'pointer-events-none',
+                        'flex w-full items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2 text-left text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-dark-level-one dark:text-dark-white dark:hover:bg-dark-level-three'
+                      )}
+                    >
+                      <span>Storage categories</span>
+                      <SelectorIcon className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                    </Menu.Button>
+                    <Transition
+                      as={Fragment}
+                      enter="transition ease-out duration-100"
+                      enterFrom="transform opacity-0 scale-95"
+                      enterTo="transform opacity-100 scale-100"
+                      leave="transition ease-in duration-75"
+                      leaveFrom="transform opacity-100 scale-100"
+                      leaveTo="transform opacity-0 scale-95"
+                    >
+                      <Menu.Items className="absolute left-3 right-3 z-50 mt-1 max-h-60 overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg focus:outline-none dark:border-gray-600 dark:bg-dark-level-three">
+                        {itemCategories.map((team) => {
+                          const selected = filterDetails.categoryFilter?.includes(team.bgColorClass);
+
+                          return (
+                            <Menu.Item key={team.name}>
+                              {({ active }) => (
+                                <button
+                                  type="button"
+                                  onClick={() => dispatch(inventoryAddCategoryFilter(team.bgColorClass))}
+                                  className={classNames(
+                                    active ? 'bg-gray-100 dark:bg-dark-level-two' : '',
+                                    selected ? 'text-green-700 dark:text-green-400' : 'text-gray-700 dark:text-dark-white',
+                                    'flex w-full items-center px-3 py-2 text-sm font-medium'
+                                  )}
+                                >
+                                  <span className={classNames(team.bgColorClass, 'mr-3 h-2.5 w-2.5 rounded-full')} aria-hidden="true" />
+                                  <span className="truncate">{team.name}</span>
+                                  {selected && <span className="ml-auto">✓</span>}
+                                </button>
+                              )}
+                            </Menu.Item>
+                          );
+                        })}
+                      </Menu.Items>
+                    </Transition>
+                  </Menu>
                 </div>
               ) : (
                 <div className="mt-8">
