@@ -3,7 +3,6 @@ import { Dialog, Transition } from '@headlessui/react';
 import {
   ArchiveIcon,
   CollectionIcon,
-  DatabaseIcon,
   DownloadIcon,
 } from '@heroicons/react/solid';
 import { useDispatch, useSelector } from 'react-redux';
@@ -17,7 +16,8 @@ import { State } from '../../../renderer/interfaces/states';
 import { getAllStorages } from '../../../renderer/functionsClasses/storageUnits/storageUnitsFunctions';
 import { downloadReport } from '../../../renderer/functionsClasses/downloadReport';
 import RightGraph from './rightGraph';
-import LeftGraph from './leftGraph';
+import PortfolioValue from './portfolioValue';
+import PortfolioPerformance from './portfolioPerformance';
 
 
 
@@ -192,33 +192,6 @@ function Content() {
             <div className="mt-8 bg-gray-50 dark:bg-dark-level-one">
               <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="mt-2 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                  {/* Card */}
-                  <div
-                    key="all card"
-                    className="overflow-hidden bg-white shadow dark:bg-dark-level-three"
-                  >
-                    <div className="p-5">
-                      <div className="flex items-center">
-                        <div className="shrink-0">
-                          <DatabaseIcon
-                            className="h-6 w-6 text-gray-400"
-                            aria-hidden="true"
-                          />
-                        </div>
-                        <div className="ml-5 w-0 flex-1">
-                          <dl>
-                            <dt className="text-sm font-medium text-gray-900 dark:text-dark-white truncate">
-                              Total
-                            </dt>
-                            <dd>
-                              <div className="text-lg font-medium text-green-500">{new Intl.NumberFormat(settingsData.locale).format(inventory.totalAccountItems)}</div>
-                              <div className="text-sm text-gray-500">All account items</div>
-                            </dd>
-                          </dl>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
                   <div
                     key="Storage Units"
                     className="overflow-hidden bg-white shadow dark:bg-dark-level-three"
@@ -271,6 +244,7 @@ function Content() {
                       </div>
                     </div>
                   </div>
+                  <PortfolioValue />
                 </div>
               </div>
 
@@ -280,7 +254,7 @@ function Content() {
                 <div className="max-w-6xl mx-auto mt-8 px-4 sm:px-6 lg:px-8">
                   <div className="grid grid-rows-3 grid-flow-col gap-4 mt-2">
                     <div className="align-middle mw-5 pl-5 pr-5 overflow-x-auto row-span-3 overflow-hidden bg-white dark:bg-dark-level-three">
-                      <LeftGraph />
+                      <PortfolioPerformance />
                     </div>
                     <div className="align-middle mw-5 overflow-x-auto row-span-3 pb-5 shadow overflow-hidden bg-white dark:bg-dark-level-three">
                       <RightGraph />

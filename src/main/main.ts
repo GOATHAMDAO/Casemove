@@ -20,9 +20,15 @@ import {
 } from './helpers/classes/steam/pricing';
 import {
   deleteUserData,
+  getCSFloatApiKey,
+  getPriceEmpireApiKey,
+  getPriceEmpireExcludedPortfolios,
   getRefreshToken,
   getValue,
   setAccountPosition,
+  setCSFloatApiKey,
+  setPriceEmpireApiKey,
+  setPriceEmpireExcludedPortfolios,
   setValue,
   setAccountTradeURL,
   setAccountInventoryCapacity,
@@ -35,6 +41,16 @@ import { tradeUps } from './helpers/classes/steam/tradeup';
 import MenuBuilder from './menu';
 import { getGithubVersion } from './scripts/versionHelper';
 import { resolveHtmlPath } from './util';
+import {
+  createSavedProfileReportWorkbook,
+} from './helpers/exportSavedProfileReport';
+import type { ReportRow } from './helpers/exportSavedProfileReport';
+import { orderReportRowsByCollection } from './helpers/collectionReportOrder';
+import {
+  getPriceEmpireErrorMessage,
+  getPriceEmpirePortfolioItems,
+  reportItemKey,
+} from './helpers/priceEmpirePortfolio';
 // import log from 'electron-log';
 import log from 'electron-log';
 import { autoUpdater } from 'electron-updater';
@@ -125,15 +141,56 @@ var ByteBuffer = require('bytebuffer');
 const Protos = require('globaloffensive/protobufs/generated/_load.js');
 const Language = require('globaloffensive/language.js');
 const currencyClass = new currency();
+// Keep the price catalog and IPC handler ready before the Game Coordinator
+// connects. Overview can therefore request prices immediately after an
+// inventory appears instead of silently losing the first request.
+const pricingProvider = new runItems(null);
+getCSFloatApiKey().then((apiKey) => pricingProvider.setCSFloatApiKey(apiKey));
+pricingEmitter.on('result', (message) => {
+  mainWindow?.webContents.send('pricing', [message]);
+});
+ipcMain.on('getPrice', async (_event, info) => {
+  const itemRows = Array.isArray(info) ? info : info?.itemRows;
+  pricingProvider.handleItem(Array.isArray(itemRows) ? itemRows : [], {
+    includeCSFloat: Boolean(info?.includeCSFloat),
+  });
+});
+ipcMain.handle('csfloat-api-key-configured', async () => Boolean(await getCSFloatApiKey()));
+ipcMain.handle('set-csfloat-api-key', async (_event, apiKey) => {
+  const normalizedKey = typeof apiKey === 'string' ? apiKey.trim() : '';
+  await setCSFloatApiKey(normalizedKey);
+  pricingProvider.setCSFloatApiKey(normalizedKey);
+  return Boolean(normalizedKey);
+});
+ipcMain.handle('pricempire-api-key-configured', async () => Boolean(await getPriceEmpireApiKey()));
+ipcMain.handle('set-pricempire-api-key', async (_event, apiKey) => {
+  const normalizedKey = typeof apiKey === 'string' ? apiKey.trim() : '';
+  await setPriceEmpireApiKey(normalizedKey);
+  return Boolean(normalizedKey);
+});
+ipcMain.handle('get-pricempire-excluded-portfolios', async () => getPriceEmpireExcludedPortfolios());
+ipcMain.handle('set-pricempire-excluded-portfolios', async (_event, portfolioNames) => {
+  await setPriceEmpireExcludedPortfolios(Array.isArray(portfolioNames) ? portfolioNames : []);
+  return getPriceEmpireExcludedPortfolios();
+});
 let tradeUpClass = new tradeUps();
 const ClassLoginResponse = new LoginGenerator();
 let activeTradeManager: any = null;
 let tradeManagerError = 'Steam trade session is not ready yet.';
 let activeSteamSessionToken = 0;
+let activeSteamUsername = '';
+let activeCSGOSession: any = null;
 let disposeActiveSteamSession: (() => void) | null = null;
 let savedCapacityQueue: Promise<void> = Promise.resolve();
 const CS2_INVENTORY_LIMIT = 1000;
 const MAX_CS2_TRADE_OFFER_ITEMS = 1000;
+
+function queueSavedAccountRequest<T>(request: () => Promise<T>): Promise<T> {
+  const runAfterPreviousRequest = savedCapacityQueue.catch(() => undefined);
+  const task = runAfterPreviousRequest.then(request);
+  savedCapacityQueue = task.then(() => undefined, () => undefined);
+  return task;
+}
 
 function refreshSavedAccountCapacity(username: string): Promise<{
   inventorySlots: number;
@@ -141,8 +198,7 @@ function refreshSavedAccountCapacity(username: string): Promise<{
   limit: number;
   updatedAt: string;
 }> {
-  const runAfterPreviousRequest = savedCapacityQueue.catch(() => undefined);
-  const task = runAfterPreviousRequest.then(async () => {
+  return queueSavedAccountRequest(async () => {
     const accounts = await getValue('account') as any;
     if (!accounts?.[username]) {
       throw new Error('Saved Steam profile was not found.');
@@ -231,9 +287,273 @@ function refreshSavedAccountCapacity(username: string): Promise<{
       temporaryUser.logOn({ refreshToken });
     });
   });
+}
 
-  savedCapacityQueue = task.then(() => undefined, () => undefined);
-  return task;
+type SavedProfileItems = {
+  username: string;
+  displayName: string;
+  directItems: any[];
+  storageItems: any[];
+  warnings: string[];
+};
+
+function getInventoryRows(inventory: any) {
+  return (Array.isArray(inventory) ? inventory : Object.values(inventory || {}))
+    .filter((item: any) => item?.id && item.casket_id === undefined);
+}
+
+function getSavedStorageContents(csgoSession: any, casketID: string): Promise<any[]> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('Steam did not return the Storage Unit in time.'));
+    }, 30000);
+
+    try {
+      csgoSession.getCasketContents(casketID, (error: Error | null, items: any) => {
+        clearTimeout(timeout);
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(Array.isArray(items) ? items : Object.values(items || {}));
+      });
+    } catch (error) {
+      clearTimeout(timeout);
+      reject(error);
+    }
+  });
+}
+
+async function collectProfileItems(username: string, displayName: string, csgoSession: any): Promise<SavedProfileItems> {
+  const sourceItems = getInventoryRows(csgoSession.inventory);
+  const directItems = await fetchItemClass.convertInventory(sourceItems);
+  const storageUnits = sourceItems.filter(
+    (item: any) => Number(item?.def_index) === 1201 && Number(item?.casket_contained_item_count) > 0,
+  );
+  const storageItems: any[] = [];
+  const warnings: string[] = [];
+
+  // Storage Unit requests are intentionally sequential. The Game Coordinator
+  // can silently drop parallel Casket requests.
+  for (const storageUnit of storageUnits) {
+    try {
+      const contents = await getSavedStorageContents(csgoSession, String(storageUnit.id));
+      const convertedContents = await fetchItemClass.convertStorageData(contents);
+      storageItems.push(...convertedContents);
+    } catch (error: any) {
+      warnings.push(`${displayName}: Storage Unit ${storageUnit.custom_name || storageUnit.id} was skipped (${error?.message || 'unknown error'}).`);
+    }
+  }
+
+  return {
+    username,
+    displayName,
+    directItems,
+    storageItems,
+    warnings,
+  };
+}
+
+async function fetchActiveProfileItems(username: string, account: any): Promise<SavedProfileItems> {
+  if (!activeCSGOSession?.haveGCSession) {
+    throw new Error('The active profile is not connected to the CS2 inventory yet. It was skipped to keep your current Steam session signed in.');
+  }
+  return collectProfileItems(username, account?.displayName || username, activeCSGOSession);
+}
+
+async function fetchSavedProfileItems(username: string, account: any): Promise<SavedProfileItems> {
+  let refreshToken: string;
+  try {
+    refreshToken = await getRefreshToken(username);
+  } catch (_error) {
+    throw new Error('Saved session has expired. Sign in to this profile again.');
+  }
+
+  const displayName = account?.displayName || username;
+  return new Promise((resolve, reject) => {
+    const temporaryUser = new SteamUser({
+      autoRelogin: false,
+      protocol: (SteamUser as any).EConnectionProtocol.TCP,
+    });
+    const temporaryCSGO = new GlobalOffensive(temporaryUser);
+    let finished = false;
+    let timeout: NodeJS.Timeout;
+
+    const finish = (error?: Error, result?: SavedProfileItems) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timeout);
+      temporaryCSGO.removeAllListeners();
+      temporaryUser.removeAllListeners();
+      try {
+        temporaryUser.gamesPlayed([]);
+        temporaryUser.logOff();
+      } catch (_cleanupError) {
+        // The session may fail before a Steam connection exists.
+      }
+      if (error) reject(error);
+      else resolve(result as SavedProfileItems);
+    };
+
+    timeout = setTimeout(() => {
+      finish(new Error('Steam did not return this profile inventory in time.'));
+    }, 120000);
+
+    temporaryUser.once('error', (error) => {
+      finish(new Error(`Steam could not open this saved session: ${error}`));
+    });
+    temporaryUser.once('loggedOn', () => {
+      temporaryUser.gamesPlayed([730], true);
+    });
+    temporaryCSGO.once('connectedToGC', async () => {
+      try {
+        finish(undefined, await collectProfileItems(username, displayName, temporaryCSGO));
+      } catch (error: any) {
+        finish(new Error(error?.message || 'Could not read this profile inventory.'));
+      }
+    });
+
+    temporaryUser.logOn({ refreshToken });
+  });
+}
+
+async function exportSavedProfileInventoryReport() {
+  return queueSavedAccountRequest(async () => {
+    const accounts = (await getValue('account') || {}) as Record<string, any>;
+    const savedOrder = (await getValue('accountKeyList') || []) as string[];
+    const orderedUsernames = [
+      ...savedOrder.filter((username) => Boolean(accounts[username])),
+      ...Object.keys(accounts).filter((username) => !savedOrder.includes(username)),
+    ];
+    // The profile currently open in Casemove is the main account for this
+    // export. Keeping it first places it directly after Storage units.
+    if (activeSteamUsername && orderedUsernames.includes(activeSteamUsername)) {
+      orderedUsernames.splice(orderedUsernames.indexOf(activeSteamUsername), 1);
+      orderedUsernames.unshift(activeSteamUsername);
+    }
+    if (orderedUsernames.length === 0) {
+      throw new Error('Add and sign in to at least one saved Steam profile first.');
+    }
+
+    const profiles: SavedProfileItems[] = [];
+    const failedProfiles: string[] = [];
+    for (const username of orderedUsernames) {
+      try {
+        // Re-authenticating the same Steam account invalidates its live GC
+        // session. Reuse the active Inventory session instead, so exporting
+        // from Inventory never signs the user out of the current profile.
+        profiles.push(username === activeSteamUsername
+          ? await fetchActiveProfileItems(username, accounts[username])
+          : await fetchSavedProfileItems(username, accounts[username]));
+      } catch (error: any) {
+        failedProfiles.push(`${accounts[username]?.displayName || username}: ${error?.message || 'could not load inventory'}`);
+      }
+    }
+    if (profiles.length === 0) {
+      throw new Error(`Could not load any saved profile. ${failedProfiles.join(' ')}`);
+    }
+
+    const items = new Map<string, { storageTotal: number; profileTotals: number[]; collection?: string }>();
+    const addItems = (itemRows: any[], profileIndex: number | null) => {
+      itemRows.forEach((item) => {
+        const itemName = [item.item_name, item.item_wear_name].filter(Boolean).join(', ');
+        if (!itemName) return;
+        const row = items.get(itemName) || {
+          storageTotal: 0,
+          profileTotals: Array(profiles.length).fill(0),
+          collection: item.item_collection,
+        };
+        if (!row.collection && item.item_collection) row.collection = item.item_collection;
+        if (profileIndex === null) row.storageTotal += 1;
+        else row.profileTotals[profileIndex] += 1;
+        items.set(itemName, row);
+      });
+    };
+    profiles.forEach((profile, index) => {
+      addItems(profile.directItems, index);
+      addItems(profile.storageItems, null);
+    });
+
+    let priceEmpireQuantities: Map<string, number> | null = null;
+    let priceEmpireItemNames: Map<string, string> | null = null;
+    let priceEmpireWarning = '';
+    let priceEmpirePortfolioCount = 0;
+    let excludedPriceEmpirePortfolioCount = 0;
+    const priceEmpireApiKey = await getPriceEmpireApiKey();
+    if (!priceEmpireApiKey) {
+      priceEmpireWarning = 'PriceEmpire API key is not saved. Portfolio columns were left blank.';
+    } else {
+      try {
+        const portfolioData = await getPriceEmpirePortfolioItems(
+          priceEmpireApiKey,
+          await getPriceEmpireExcludedPortfolios(),
+        );
+        priceEmpireQuantities = new Map();
+        priceEmpireItemNames = new Map();
+        portfolioData.quantities.forEach((quantity, itemName) => {
+          const itemKey = reportItemKey(itemName);
+          priceEmpireQuantities!.set(itemKey, (priceEmpireQuantities!.get(itemKey) || 0) + quantity);
+          priceEmpireItemNames!.set(itemKey, itemName);
+        });
+        priceEmpirePortfolioCount = portfolioData.portfolioCount;
+        excludedPriceEmpirePortfolioCount = portfolioData.excludedPortfolioCount;
+      } catch (error: any) {
+        priceEmpireWarning = `${getPriceEmpireErrorMessage(error)} Portfolio columns were left blank.`;
+      }
+    }
+
+    const rowsByItemKey = new Map<string, ReportRow>();
+    items.forEach((quantities, itemName) => {
+      const total = quantities.storageTotal + quantities.profileTotals.reduce((sum, quantity) => sum + quantity, 0);
+      rowsByItemKey.set(reportItemKey(itemName), {
+        itemName,
+        storageTotal: quantities.storageTotal,
+        profileTotals: quantities.profileTotals,
+        collection: quantities.collection,
+        total,
+      });
+    });
+    if (priceEmpireQuantities) {
+      rowsByItemKey.forEach((row, itemKey) => {
+        const quantity = priceEmpireQuantities!.get(itemKey) || 0;
+        row.priceEmpireTotal = quantity;
+        row.priceEmpireDifference = row.total - quantity;
+      });
+      priceEmpireQuantities.forEach((quantity, itemKey) => {
+        if (rowsByItemKey.has(itemKey)) return;
+        rowsByItemKey.set(itemKey, {
+          itemName: priceEmpireItemNames?.get(itemKey) || itemKey,
+          total: 0,
+          storageTotal: 0,
+          profileTotals: Array(profiles.length).fill(0),
+          priceEmpireTotal: quantity,
+          priceEmpireDifference: -quantity,
+        });
+      });
+    }
+
+    const itemRows: ReportRow[] = Array.from(rowsByItemKey.values())
+      .sort((first, second) => first.itemName.localeCompare(second.itemName));
+    const reportRows = orderReportRowsByCollection(itemRows, profiles.length);
+    const workbook = await createSavedProfileReportWorkbook(
+      profiles.map((profile) => profile.displayName),
+      reportRows,
+    );
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const reportPath = path.join(app.getPath('downloads'), `casemove-inventory-report-${timestamp}.xlsx`);
+    fs.writeFileSync(reportPath, workbook);
+    shell.showItemInFolder(reportPath);
+
+    return {
+      exportedProfiles: profiles.map((profile) => profile.displayName),
+      failedProfiles,
+      storageWarnings: profiles.flatMap((profile) => profile.warnings),
+      itemRows: itemRows.length,
+      priceEmpireWarning,
+      priceEmpirePortfolioCount,
+      excludedPriceEmpirePortfolioCount,
+    };
+  });
 }
 
 // Electron stuff
@@ -598,6 +918,8 @@ emitterAccount.on(
     // newly selected account's renderer state.
     const sessionToken = activeSteamSessionToken + 1;
     activeSteamSessionToken = sessionToken;
+    activeSteamUsername = username;
+    activeCSGOSession = null;
     disposeActiveSteamSession?.();
     disposeActiveSteamSession = null;
 
@@ -921,6 +1243,7 @@ async function startEvents(csgo, user, sessionToken) {
   };
 
   if (!isActiveSession()) return;
+  activeCSGOSession = csgo;
   // Trade offers use the authenticated web session of the currently active
   // account. No public inventory endpoint is involved, so trade-held items
   // remain part of the inventory data shown in the renderer.
@@ -942,19 +1265,12 @@ async function startEvents(csgo, user, sessionToken) {
   });
   user.webLogOn();
 
-  // Pricing
-  const pricing = new runItems(user);
-  pricingEmitter.on('result', (message) => {
-    mainWindow?.webContents.send('pricing', [message]);
-  });
-  ipcMain.on('getPrice', async (_event, info) => {
-    pricing.handleItem(info);
-  });
+  pricingProvider.steamUser = user;
 
   // Trade up handlers
   ipcMain.on('getTradeUpPossible', async (event, itemsToGet) => {
     tradeUpClass.getPotentitalOutcome(itemsToGet).then((returnValue) => {
-      pricing.handleTradeUp(returnValue);
+      pricingProvider.handleTradeUp(returnValue);
       event.reply('getTradeUpPossible-reply', returnValue);
     });
   });
@@ -1297,6 +1613,7 @@ async function startEvents(csgo, user, sessionToken) {
     }
     if (isActiveSession()) {
       activeSteamSessionToken += 1;
+      activeCSGOSession = null;
     }
   }
 
@@ -1314,6 +1631,26 @@ ipcMain.on('getCurrency', async (event) => {
       event.reply('getCurrency-reply', returnObject);
     });
   });
+});
+
+// Purchase tracker values are stored in USD at the exchange rate that was
+// available when the transaction was entered. This keeps historical cost
+// basis stable when display currencies change later.
+ipcMain.handle('convert-currency', async (_event, from: string, to: string, amount: number) => {
+  const normalizedFrom = String(from || '').toUpperCase();
+  const normalizedTo = String(to || '').toUpperCase();
+  const numericAmount = Number(amount);
+  if (!normalizedFrom || !normalizedTo || !Number.isFinite(numericAmount)) {
+    throw new Error('Invalid currency conversion request.');
+  }
+  if (normalizedFrom === normalizedTo) return numericAmount;
+
+  const fromRate = Number(await currencyClass.getRate(normalizedFrom));
+  const toRate = Number(await currencyClass.getRate(normalizedTo));
+  if (!Number.isFinite(fromRate) || fromRate <= 0 || !Number.isFinite(toRate) || toRate <= 0) {
+    throw new Error(`Exchange rate for ${normalizedFrom} or ${normalizedTo} is unavailable.`);
+  }
+  return (numericAmount / fromRate) * toRate;
 });
 
 // Set initial settings
@@ -1346,6 +1683,10 @@ ipcMain.on('electron-store-getAccountDetails', async (event) => {
 
 ipcMain.handle('refresh-saved-profile-details', async () => {
   return refreshSavedProfileDetails();
+});
+
+ipcMain.handle('export-saved-profile-inventory-report', async () => {
+  return exportSavedProfileInventoryReport();
 });
 
 ipcMain.on('electron-store-deleteAccountDetails', async (_event, username) => {

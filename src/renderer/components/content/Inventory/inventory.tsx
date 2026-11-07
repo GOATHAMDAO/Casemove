@@ -4,7 +4,7 @@ import InventoryRowsComponent from './inventoryRows';
 import { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { LoadingButton } from '../shared/animations';
-import { RefreshIcon } from '@heroicons/react/solid';
+import { DocumentDownloadIcon, RefreshIcon } from '@heroicons/react/solid';
 import { ReducerManager } from '../../../functionsClasses/reducerManager';
 import { State } from '../../../interfaces/states';
 import { getAllStorages } from '../../../functionsClasses/storageUnits/storageUnitsFunctions';
@@ -17,6 +17,8 @@ function Content() {
   const [loadedStorageKey, setLoadedStorageKey] = useState('');
   const [storageResetComplete, setStorageResetComplete] = useState(false);
   const [failedStorageCount, setFailedStorageCount] = useState(0);
+  const [exportingReport, setExportingReport] = useState(false);
+  const [reportMessage, setReportMessage] = useState('');
   const dispatch = useDispatch();
   const ReducerClass = new ReducerManager(useSelector);
   const currentState: State = ReducerClass.getStorage();
@@ -105,6 +107,22 @@ function Content() {
     setLoadingButton(false);
   }
 
+  async function exportAllProfiles() {
+    setExportingReport(true);
+    setReportMessage('Loading all saved Steam profiles…');
+    try {
+      const result = await window.electron.ipcRenderer.exportSavedProfileInventoryReport();
+      const priceEmpireSummary = result.priceEmpireWarning
+        ? ` ${result.priceEmpireWarning}`
+        : ` Compared with ${result.priceEmpirePortfolioCount} PriceEmpire portfolio${result.priceEmpirePortfolioCount === 1 ? '' : 's'}${result.excludedPriceEmpirePortfolioCount ? `; ${result.excludedPriceEmpirePortfolioCount} excluded` : ''}.`;
+      setReportMessage(`Excel report created: ${result.itemRows} item type${result.itemRows === 1 ? '' : 's'}.${priceEmpireSummary}`);
+    } catch (error: any) {
+      setReportMessage(error?.message || 'Could not create the Excel report.');
+    } finally {
+      setExportingReport(false);
+    }
+  }
+
   return (
     <>
       {/* Page title & actions */}
@@ -114,22 +132,33 @@ function Content() {
             Inventory
           </h1>
         </div>
-        <div className="mt-4 flex sm:mt-0 sm:ml-4">
-          <button
-            type="button"
-            onClick={() => refreshInventory()}
-            className="focus:outline-none focus:bg-dark-level-four order-1 ml-3  order-1 inline-flex items-center px-4 py-2 hover:border hover:shadow-sm dark:hover:bg-dark-level-four  text-sm font-medium rounded-md text-gray-700  hover:bg-gray-50 sm:order-0 sm:ml-0'"
-
-          >
-            {getLoadingButton ? (
-              <LoadingButton />
-            ) : (
-              <RefreshIcon
-                className="h-4 w-4 text-gray-500 dark:text-dark-white"
-                aria-hidden="true"
-              />
-            )}
-          </button>
+        <div className="mt-4 flex flex-col items-end gap-1 sm:mt-0 sm:ml-4">
+          <div className="flex">
+            <button
+              type="button"
+              disabled={exportingReport}
+              onClick={exportAllProfiles}
+              className="inline-flex items-center rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <DocumentDownloadIcon className="mr-2 h-4 w-4" aria-hidden="true" />
+              {exportingReport ? 'Exporting…' : 'Export all to Excel'}
+            </button>
+            <button
+              type="button"
+              onClick={() => refreshInventory()}
+              className="ml-3 inline-flex items-center rounded-md px-4 py-2 text-sm font-medium text-gray-700 hover:border hover:bg-gray-50 hover:shadow-sm focus:bg-dark-level-four focus:outline-none dark:hover:bg-dark-level-four"
+            >
+              {getLoadingButton ? (
+                <LoadingButton />
+              ) : (
+                <RefreshIcon
+                  className="h-4 w-4 text-gray-500 dark:text-dark-white"
+                  aria-hidden="true"
+                />
+              )}
+            </button>
+          </div>
+          {reportMessage && <p className="max-w-md text-right text-xs text-gray-500 dark:text-gray-400">{reportMessage}</p>}
         </div>
       </div>
       {/* Pinned projects */}

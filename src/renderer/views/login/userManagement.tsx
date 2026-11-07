@@ -1,4 +1,4 @@
-import { CheckIcon, TrashIcon, UserIcon } from '@heroicons/react/solid';
+import { CheckIcon, DocumentDownloadIcon, TrashIcon, UserIcon } from '@heroicons/react/solid';
 import { useEffect, useState } from 'react';
 import { classNames } from '../../../renderer/components/content/shared/filters/inventoryFunctions';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
@@ -6,6 +6,8 @@ import { createCSGOImage } from '../../functionsClasses/createCSGOImage';
 
 export default function UserGrid({ clickOnProfile, deleteUser,  runDeleteUser }) {
   const [getUsers, setUsers] = useState([] as any);
+  const [exportingReport, setExportingReport] = useState(false);
+  const [reportMessage, setReportMessage] = useState('');
 
   // The brain
   async function updateFunction() {
@@ -86,6 +88,26 @@ export default function UserGrid({ clickOnProfile, deleteUser,  runDeleteUser })
     window.electron.ipcRenderer.deleteAccountDetails(username);
     updateFunction();
   }
+
+  async function exportAllProfiles() {
+    setExportingReport(true);
+    setReportMessage('Loading saved profile inventories…');
+    try {
+      const result = await window.electron.ipcRenderer.exportSavedProfileInventoryReport();
+      const skipped = result.failedProfiles?.length || 0;
+      const storageWarnings = result.storageWarnings?.length || 0;
+      const priceEmpireSummary = result.priceEmpireWarning
+        ? ` ${result.priceEmpireWarning}`
+        : ` Compared with ${result.priceEmpirePortfolioCount} PriceEmpire portfolio${result.priceEmpirePortfolioCount === 1 ? '' : 's'}${result.excludedPriceEmpirePortfolioCount ? `; ${result.excludedPriceEmpirePortfolioCount} excluded` : ''}.`;
+      setReportMessage(
+        `Excel report created: ${result.itemRows} item type${result.itemRows === 1 ? '' : 's'} from ${result.exportedProfiles.length} profile${result.exportedProfiles.length === 1 ? '' : 's'}${skipped ? `; ${skipped} profile${skipped === 1 ? '' : 's'} skipped` : ''}${storageWarnings ? `; ${storageWarnings} Storage Unit${storageWarnings === 1 ? '' : 's'} skipped` : ''}.${priceEmpireSummary}`,
+      );
+    } catch (error: any) {
+      setReportMessage(error?.message || 'Could not create the Excel report.');
+    } finally {
+      setExportingReport(false);
+    }
+  }
   if (deleteUser) {
     updateFunction()
     runDeleteUser()
@@ -118,8 +140,26 @@ export default function UserGrid({ clickOnProfile, deleteUser,  runDeleteUser })
     <div className="overflow-x-auto border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-dark-level-two lg:h-screen-fixed lg:border-b-0">
       <div className="grid grid-cols-1 gap-3 px-4 py-6 overflow-y-auto">
         <div className="px-2">
-          <h2 className="text-sm font-semibold text-gray-900 dark:text-dark-white">Saved Steam profiles</h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-dark-white">Saved Steam profiles</h2>
+            <button
+              type="button"
+              disabled={exportingReport || getUsers.length === 0}
+              onClick={exportAllProfiles}
+              title="Create one Excel report from every saved profile"
+              className={classNames(
+                exportingReport || getUsers.length === 0
+                  ? 'cursor-not-allowed bg-gray-300 dark:bg-gray-700'
+                  : 'bg-green-600 hover:bg-green-700',
+                'inline-flex items-center rounded-md px-3 py-1.5 text-xs font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2',
+              )}
+            >
+              <DocumentDownloadIcon className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {exportingReport ? 'Exporting…' : 'Export all to Excel'}
+            </button>
+          </div>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Click the green button to enter a saved session.</p>
+          {reportMessage && <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{reportMessage}</p>}
         </div>
         <DragDropContext onDragEnd={handleOnDragEnd}>
           <Droppable droppableId="characters">

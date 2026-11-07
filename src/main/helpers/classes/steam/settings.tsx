@@ -233,6 +233,65 @@ export async function getRefreshToken(username) {
   );
   return secretData;
 }
+
+const CSFLOAT_API_KEY_STORAGE = 'secrets.csfloatApiKey';
+const PRICEMPIRE_API_KEY_STORAGE = 'secrets.pricempireApiKey';
+const PRICEMPIRE_EXCLUDED_PORTFOLIOS_STORAGE = 'reports.pricempireExcludedPortfolios';
+const DEFAULT_PRICEMPIRE_EXCLUDED_PORTFOLIOS = ['Архив Армори Наклы'];
+
+export async function setCSFloatApiKey(apiKey: string) {
+  if (!apiKey) {
+    store.delete(CSFLOAT_API_KEY_STORAGE);
+    return;
+  }
+  const encryptedKey = safeStorage.encryptString(apiKey);
+  store.set(CSFLOAT_API_KEY_STORAGE, encryptedKey.toString('latin1'));
+}
+
+export async function getCSFloatApiKey() {
+  const storedKey = store.get(CSFLOAT_API_KEY_STORAGE) as string | undefined;
+  if (!storedKey) return '';
+  try {
+    return safeStorage.decryptString(Buffer.from(storedKey, 'latin1'));
+  } catch {
+    return '';
+  }
+}
+
+export async function setPriceEmpireApiKey(apiKey: string) {
+  if (!apiKey) {
+    store.delete(PRICEMPIRE_API_KEY_STORAGE);
+    return;
+  }
+  const encryptedKey = safeStorage.encryptString(apiKey);
+  store.set(PRICEMPIRE_API_KEY_STORAGE, encryptedKey.toString('latin1'));
+}
+
+export async function getPriceEmpireApiKey() {
+  const storedKey = store.get(PRICEMPIRE_API_KEY_STORAGE) as string | undefined;
+  if (!storedKey) return '';
+  try {
+    return safeStorage.decryptString(Buffer.from(storedKey, 'latin1'));
+  } catch {
+    return '';
+  }
+}
+
+export async function setPriceEmpireExcludedPortfolios(portfolioNames: string[]) {
+  const names = Array.from(new Set(
+    (Array.isArray(portfolioNames) ? portfolioNames : [])
+      .map((name) => String(name || '').trim())
+      .filter(Boolean),
+  ));
+  store.set(PRICEMPIRE_EXCLUDED_PORTFOLIOS_STORAGE, names);
+}
+
+export async function getPriceEmpireExcludedPortfolios() {
+  const storedNames = store.get(PRICEMPIRE_EXCLUDED_PORTFOLIOS_STORAGE);
+  if (!Array.isArray(storedNames)) return DEFAULT_PRICEMPIRE_EXCLUDED_PORTFOLIOS;
+  return storedNames.map((name) => String(name || '').trim()).filter(Boolean);
+}
+
 // Get all account details
 export async function getAllAccountDetails() {
   return store.get('account');

@@ -26,7 +26,7 @@ async function fileGetError(items) {
   let csgoEnglish = require('./itemsBackupFiles/csgo_english.json');
   items.setTranslations(csgoEnglish, 'Error');
   let itemsGame = require('./itemsBackupFiles/items_game.json');
-  items.setCSGOItems(itemsGame);
+  items.setCSGOItems(itemsGame.items_game || itemsGame);
 }
 
 async function getTranslations(items) {
@@ -73,6 +73,7 @@ async function updateItems(items) {
         paint_kits: {},
         prefabs: {},
         sticker_kits: {},
+        item_sets: {},
         casket_icons: {},
       };
       const data = response.data;
@@ -81,6 +82,7 @@ async function updateItems(items) {
       dict_to_write['paint_kits'] = updateItemsLoop(jsonData, 'paint_kits');
       dict_to_write['prefabs'] = updateItemsLoop(jsonData, 'prefabs');
       dict_to_write['sticker_kits'] = updateItemsLoop(jsonData, 'sticker_kits');
+      dict_to_write['item_sets'] = updateItemsLoop(jsonData, 'item_sets');
       dict_to_write['music_kits'] = updateItemsLoop(
         jsonData,
         'music_definitions'
@@ -113,6 +115,7 @@ async function updateItems(items) {
 class items {
   translation = {};
   csgoItems = {};
+  collectionIndex = null;
   itemImageCatalog = null;
   itemImagePaths = {};
   itemImageCatalogPromise = null;
@@ -125,6 +128,7 @@ class items {
 
   setCSGOItems(value) {
     this.csgoItems = value;
+    this.collectionIndex = null;
   }
   setTranslations(value, commandFrom) {
     console.log(commandFrom);
@@ -377,6 +381,7 @@ class items {
       returnDict['equipped_ct'] = equipped[0];
       returnDict['equipped_t'] = equipped[1];
       returnDict['def_index'] = value['def_index'];
+      returnDict['item_collection'] = this.getItemCollection(value);
 
       if (returnDict['item_has_stickers']) {
         const stickerList = [];
@@ -708,6 +713,31 @@ class items {
 
   get_def_index(def_index) {
     return this.csgoItems['items'][def_index];
+  }
+
+  getCollectionIndex() {
+    if (this.collectionIndex) return this.collectionIndex;
+
+    this.collectionIndex = {};
+    const itemSets = this.csgoItems['item_sets'] || {};
+    for (const [, itemSet] of Object.entries(itemSets)) {
+      if (!itemSet || itemSet.is_collection != 1 || !itemSet.items) continue;
+      const collectionName = this.handleError(this.getTranslation, [itemSet.name])
+        .replace(/^The\s+/i, '');
+      if (!collectionName) continue;
+      for (const itemKey of Object.keys(itemSet.items)) {
+        this.collectionIndex[itemKey] = collectionName;
+      }
+    }
+    return this.collectionIndex;
+  }
+
+  getItemCollection(storageRow) {
+    if (storageRow['paint_index'] === undefined) return undefined;
+    const paintKit = this.csgoItems['paint_kits']?.[storageRow['paint_index']];
+    const itemDefinition = this.get_def_index(storageRow['def_index']);
+    if (!paintKit?.name || !itemDefinition?.name) return undefined;
+    return this.getCollectionIndex()[`[${paintKit.name}]${itemDefinition.name}`];
   }
 
   getTranslation(csgoString) {

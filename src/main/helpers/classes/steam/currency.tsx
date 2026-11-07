@@ -50,9 +50,11 @@ export class currency {
     return new Promise((resolve) => {
       if (this.seenRates[exchangeTo] != undefined) {
         resolve(this.seenRates[exchangeTo])
+        return
       }
       if (this.currencyConverter == undefined) {
         resolve(this.rates[exchangeTo])
+        return
       }
       this.currencyConverter.from('USD').to(exchangeTo).amount(100).convert().then((response) => {
         let rate = response / 100

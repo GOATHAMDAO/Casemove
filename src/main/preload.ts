@@ -45,6 +45,10 @@ contextBridge.exposeInMainWorld('electron', {
       return ipcRenderer.invoke('refresh-saved-profile-details');
     },
 
+    exportSavedProfileInventoryReport() {
+      return ipcRenderer.invoke('export-saved-profile-inventory-report');
+    },
+
     setSavedAccountTradeURL(username, tradeURL) {
       return ipcRenderer.invoke('saved-account-trade-url', username, tradeURL);
     },
@@ -99,8 +103,10 @@ contextBridge.exposeInMainWorld('electron', {
     downloadFile(data) {
       ipcRenderer.send('download', data);
     },
-    getPrice(itemRows) {
-      ipcRenderer.send('getPrice', itemRows);
+    getPrice(itemRows, options = {}) {
+      ipcRenderer.send('getPrice', options && Object.keys(options).length
+        ? { itemRows, ...options }
+        : itemRows);
     },
     getCurrencyRate() {
       return new Promise((resolve) => {
@@ -110,6 +116,27 @@ contextBridge.exposeInMainWorld('electron', {
           resolve(message);
         });
       });
+    },
+    convertCurrency(from, to, amount) {
+      return ipcRenderer.invoke('convert-currency', from, to, amount);
+    },
+    csFloatApiKeyConfigured() {
+      return ipcRenderer.invoke('csfloat-api-key-configured');
+    },
+    setCsFloatApiKey(apiKey) {
+      return ipcRenderer.invoke('set-csfloat-api-key', apiKey);
+    },
+    priceEmpireApiKeyConfigured() {
+      return ipcRenderer.invoke('pricempire-api-key-configured');
+    },
+    setPriceEmpireApiKey(apiKey) {
+      return ipcRenderer.invoke('set-pricempire-api-key', apiKey);
+    },
+    getPriceEmpireExcludedPortfolios() {
+      return ipcRenderer.invoke('get-pricempire-excluded-portfolios');
+    },
+    setPriceEmpireExcludedPortfolios(portfolioNames) {
+      return ipcRenderer.invoke('set-pricempire-excluded-portfolios', portfolioNames);
     },
     // User commands
     retryConnection() {

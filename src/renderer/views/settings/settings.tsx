@@ -249,6 +249,65 @@ export default function settingsPage() {
     window.electron.ipcRenderer.refreshInventory();
   }
   const [source, setSource] = useState(settingsData.source);
+  const [csfloatApiKey, setCsfloatApiKey] = useState('');
+  const [csfloatConfigured, setCsfloatConfigured] = useState(false);
+  const [csfloatSaving, setCsfloatSaving] = useState(false);
+  const [priceEmpireApiKey, setPriceEmpireApiKey] = useState('');
+  const [priceEmpireConfigured, setPriceEmpireConfigured] = useState(false);
+  const [priceEmpireSaving, setPriceEmpireSaving] = useState(false);
+  const [priceEmpireExcludedPortfolios, setPriceEmpireExcludedPortfolios] = useState('');
+  const [priceEmpireExclusionsSaving, setPriceEmpireExclusionsSaving] = useState(false);
+
+  useEffect(() => {
+    window.electron.ipcRenderer.csFloatApiKeyConfigured()
+      .then((configured: boolean) => setCsfloatConfigured(Boolean(configured)))
+      .catch(() => setCsfloatConfigured(false));
+  }, []);
+
+  useEffect(() => {
+    window.electron.ipcRenderer.priceEmpireApiKeyConfigured()
+      .then((configured: boolean) => setPriceEmpireConfigured(Boolean(configured)))
+      .catch(() => setPriceEmpireConfigured(false));
+    window.electron.ipcRenderer.getPriceEmpireExcludedPortfolios()
+      .then((names: string[]) => setPriceEmpireExcludedPortfolios((names || []).join('\n')))
+      .catch(() => setPriceEmpireExcludedPortfolios(''));
+  }, []);
+
+  async function saveCsfloatApiKey() {
+    if (!csfloatApiKey.trim()) return;
+    setCsfloatSaving(true);
+    try {
+      const configured = await window.electron.ipcRenderer.setCsFloatApiKey(csfloatApiKey);
+      setCsfloatConfigured(Boolean(configured));
+      setCsfloatApiKey('');
+    } finally {
+      setCsfloatSaving(false);
+    }
+  }
+
+  async function savePriceEmpireApiKey() {
+    if (!priceEmpireApiKey.trim()) return;
+    setPriceEmpireSaving(true);
+    try {
+      const configured = await window.electron.ipcRenderer.setPriceEmpireApiKey(priceEmpireApiKey);
+      setPriceEmpireConfigured(Boolean(configured));
+      setPriceEmpireApiKey('');
+    } finally {
+      setPriceEmpireSaving(false);
+    }
+  }
+
+  async function savePriceEmpireExclusions() {
+    setPriceEmpireExclusionsSaving(true);
+    try {
+      const savedNames = await window.electron.ipcRenderer.setPriceEmpireExcludedPortfolios(
+        priceEmpireExcludedPortfolios.split(/[\n,]/).map((name) => name.trim()).filter(Boolean),
+      );
+      setPriceEmpireExcludedPortfolios((savedNames || []).join('\n'));
+    } finally {
+      setPriceEmpireExclusionsSaving(false);
+    }
+  }
 
   return (
     <>
@@ -559,6 +618,100 @@ export default function settingsPage() {
                                 <span className="flex items-center ml-4 shrink-0">
                                   <ColumnsDropDown />
                                 </span>
+                              </dd>
+                            </div>
+                          </dl>
+                        </div>
+                      </div>
+
+                      <div className="mt-10 divide-y divide-gray-200 dark:divide-opacity-50">
+                        <div className="space-y-1">
+                          <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-dark-white">
+                            Market API keys
+                          </h3>
+                          <p className="max-w-2xl text-sm text-gray-500">
+                            API keys are stored locally and are never displayed after saving.
+                          </p>
+                          <dl className="divide-y divide-gray-200 dark:divide-opacity-50">
+                            <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4">
+                              <dt className="text-sm font-medium text-gray-900 dark:text-dark-white">
+                                CSFloat API key<br />
+                                <span className="text-gray-400">
+                                  {csfloatConfigured ? 'A key is saved on this computer.' : 'Required to load CSFloat marketplace prices.'}
+                                </span>
+                              </dt>
+                              <dd className="mt-1 flex text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                                <div className="flex w-full max-w-md gap-2">
+                                  <input
+                                    type="password"
+                                    value={csfloatApiKey}
+                                    onChange={(event) => setCsfloatApiKey(event.target.value)}
+                                    placeholder={csfloatConfigured ? 'Enter a new key to replace it' : 'Paste API key'}
+                                    className="min-w-0 flex-1 rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-dark-level-one dark:text-dark-white"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={saveCsfloatApiKey}
+                                    disabled={csfloatSaving || !csfloatApiKey.trim()}
+                                    className="rounded bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    {csfloatSaving ? 'Saving…' : 'Save'}
+                                  </button>
+                                </div>
+                              </dd>
+                            </div>
+                            <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4">
+                              <dt className="text-sm font-medium text-gray-900 dark:text-dark-white">
+                                PriceEmpire API key<br />
+                                <span className="text-gray-400">
+                                  {priceEmpireConfigured ? 'A key is saved on this computer. Excel exports include all PriceEmpire portfolios.' : 'Required to compare all PriceEmpire portfolios in the Excel export.'}
+                                </span>
+                              </dt>
+                              <dd className="mt-1 flex text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                                <div className="flex w-full max-w-md gap-2">
+                                  <input
+                                    type="password"
+                                    value={priceEmpireApiKey}
+                                    onChange={(event) => setPriceEmpireApiKey(event.target.value)}
+                                    placeholder={priceEmpireConfigured ? 'Enter a new key to replace it' : 'Paste API key'}
+                                    className="min-w-0 flex-1 rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-dark-level-one dark:text-dark-white"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={savePriceEmpireApiKey}
+                                    disabled={priceEmpireSaving || !priceEmpireApiKey.trim()}
+                                    className="rounded bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    {priceEmpireSaving ? 'Saving…' : 'Save'}
+                                  </button>
+                                </div>
+                              </dd>
+                            </div>
+                            <div className="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4">
+                              <dt className="text-sm font-medium text-gray-900 dark:text-dark-white">
+                                Ignore PriceEmpire portfolios<br />
+                                <span className="text-gray-400">
+                                  Their items will not be counted in the Excel comparison. One name or slug per line.
+                                </span>
+                              </dt>
+                              <dd className="mt-1 flex text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                                <div className="flex w-full max-w-md gap-2">
+                                  <textarea
+                                    value={priceEmpireExcludedPortfolios}
+                                    onChange={(event) => setPriceEmpireExcludedPortfolios(event.target.value)}
+                                    rows={2}
+                                    placeholder="Portfolio name or slug"
+                                    className="min-w-0 flex-1 resize-y rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-dark-level-one dark:text-dark-white"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={savePriceEmpireExclusions}
+                                    disabled={priceEmpireExclusionsSaving}
+                                    className="self-start rounded bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    {priceEmpireExclusionsSaving ? 'Saving…' : 'Save'}
+                                  </button>
+                                </div>
                               </dd>
                             </div>
                           </dl>
